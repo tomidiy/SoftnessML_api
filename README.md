@@ -1,7 +1,7 @@
 # SoftnessML_api
 
 A FastAPI-based web service for predicting particle softness in molecular dynamics simulations
-using machine learning (Softness methodology). The API processes GSD files to compute softness based on radial and angular 
+using machine learning (based on the SVM methodology implemented by [Schoenholz et. al.](https://www.nature.com/articles/nphys3644)). The API processes GSD files to compute softness based on radial and angular 
 structural features.
 
 

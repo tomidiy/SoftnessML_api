@@ -1,7 +1,4 @@
 # SoftnessML API
-$$
-a^2 + b^2 = c^2
-$$
 
 A machine learning framework for predicting local rearrangement propensity ("softness") in supercooled liquids and glassy systems using structure-based descriptors and Support Vector Machine (SVM) models.
 
@@ -46,6 +43,82 @@ used in this project are available in the GitHub Wiki:
 
 📐 **Mathematical Framework**  
 https://github.com/tomidiy/SoftnessML_api/wiki/Mathematical-Framework
+
+
+### Local Structure Descriptors
+The local environment of each particle is characterized by radial structure functions, angular structure functions, and bond-orientational order parameters computed via spherical harmonics.
+
+1. **Radial Structure Functions**  
+   Capture local density variations at different distances:
+
+$$
+G_\mu(i) = \sum_{j \in \mathrm{neighbors}} e^{-(r_{ij} - \mu)^2 / L^2}
+$$
+
+   where $\mu$ are radial distance parameters and $L$ is a characteristic length scale.
+
+2. **Angular Structure Functions**  
+   Capture three-body correlations:
+
+$$
+\Psi_{\xi,\lambda,\zeta}(i) = \sum_{j,k \in \text{neighbors}} e^{-\xi^2 (r_{ij}^2 + r_{ik}^2 + r_{jk}^2)} (1 + \lambda \cos \theta_{jik})^\zeta
+$$
+
+   where $\theta_{jik}$ is the angle at particle $i$ formed by neighbors $j$ and $k$, and $\xi$, $\lambda$, $\zeta$ control radial decay and angular sensitivity.
+
+3. **Bond-Orientational Order Parameters (Steinhardt Parameters)**  
+   These quantify the degree of local rotational symmetry using spherical harmonics. For a central particle $i$, neighbors within annular  shells (defined by inner radii $r_{\text{inner}}$ and width $\Delta r = 0.5$) are considered.
+
+   For each shell and each even angular momentum $l$ (typically $l = 2, 4, 6, 8, 10, 12, 14$):
+
+$$
+q_{lm}(i) = \frac{1}{N_b(i)} \sum_{j \in \text{shell}} Y_{lm}(\theta_{ij}, \phi_{ij})
+$$
+
+$$
+q_l(i) = \sqrt{\frac{4\pi}{2l + 1} \sum_{m=-l}^{l} |q_{lm}(i)|^2}
+$$
+
+   where:
+   - $N_b(i)$ is the number of neighbors in the shell
+   - $Y_{lm}(\theta, \phi)$ are spherical harmonics
+   - $(\theta_{ij}, \phi_{ij})$ are the polar and azimuthal angles of the vector from particle $i$ to neighbor $j$
+
+   The rotationally invariant $q_l(i)$ measures the strength of $l$-fold symmetry in that shell. In practice, the implementation computes the average of $|Y_{lm}|$ over neighbors and then applies the normalization (equivalent under magnitude).
+
+### Softness Calculation (SVM)
+Softness is computed as a linear combination of the structural descriptors using a trained Support Vector Machine: Softness is 
+
+$$
+S_i = \mathbf{w} \cdot \mathbf{x}_i + b
+$$
+
+where:
+- $\mathbf{x}$ is the concatenated feature vector (radial $G_\mu$ and bond-orientational $q_l$ or angular $\Psi_{\xi,\lambda,\zeta}$ for multiple shells) for particle $i$
+- $\mathbf{w}$ is the learned weight vector
+- $b$ is the bias term
+
+The SVM is trained to separate particles that undergo significant motion. To quantify particle motion, we use the **hop parameter** $p_{\text{hop}}$, following the activated‑dynamics framework of Candelier et al. This metric measures particle displacement over a fixed observation window.
+
+For a window of 10 Lennard‑Jones time units:
+
+$$
+p_{\text{hop}}(i,t) =
+\sqrt{
+\left\langle
+\left(\vec{r}_i(t) - \langle \vec{r}_i \rangle_{w_2}\right)^2
+\right\rangle_{w_1}
+\left\langle
+\left(\vec{r}_i(t) - \langle \vec{r}_i \rangle_{w_1}\right)^2
+\right\rangle_{w_2}
+}
+$$
+
+where the time windows are
+$w_1 = [t-5, t]$ and $w_2 = [t, t+5]$, and
+$\langle \cdot \rangle_{w_i}$ denotes an average over the corresponding half‑window.
+
+
 
 
 ## Installation

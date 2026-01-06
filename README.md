@@ -38,13 +38,6 @@ Predicting particle rearrangements has important implications in:
 - **Industrial Applications**: Prediction of aging, failure, and deformation in glassy systems
 
 ## Mathematical Framework
-Detailed theoretical background and mathematical formulations
-used in this project are available in the GitHub Wiki:
-
-📐 **Mathematical Framework**  
-https://github.com/tomidiy/SoftnessML_api/wiki/Mathematical-Framework
-
-
 ### Local Structure Descriptors
 The local environment of each particle is characterized by radial structure functions, angular structure functions, and bond-orientational order parameters computed via spherical harmonics.
 

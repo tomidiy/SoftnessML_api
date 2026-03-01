@@ -29,7 +29,7 @@ The implementation follows [Schoenholz et al. (2016)](https://www.nature.com/art
 
 ---
 
-## 📈 Results
+## Results
 
 ### Particle Trajectories Colored by Softness
 

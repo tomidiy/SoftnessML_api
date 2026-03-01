@@ -2,205 +2,305 @@
 
 A machine learning framework for predicting local rearrangement propensity ("softness") in supercooled liquids and glassy systems using structure-based descriptors and Support Vector Machine (SVM) models.
 
-## Table of Contents
-- [Overview](#overview)
-- [Scientific Background](#scientific-background)
-- [Mathematical Framework](#mathematical-framework)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API Reference](#api-reference)
-- [Project Structure](#project-structure)
-- [Applications](#applications)
-- [References](#references)
+> **Machine learning framework for predicting particle rearrangements in supercooled liquids and glasses from local structure — served as a FastAPI microservice.**
 
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/deploy-Docker-2496ED.svg)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
 
 ## Overview
-**SoftnessML API** is a Python-based framework that uses machine learning to predict the "softness" of particles in disordered systems such as supercooled liquids and glasses. Softness is a structure-based quantity that correlates strongly with the local propensity for particle rearrangements, enabling predictions of dynamics from static structural information.
 
-This project provides:
-- Calculation of local structural descriptors (radial, angular, and bond-orientational order parameters via spherical harmonics) from molecular dynamics (MD) trajectories stored in GSD files
-- Trained Support Vector Machine (SVM) model for softness prediction
-- A FastAPI-based RESTful API for easy integration into simulation pipelines
-- Efficient computation using Numba acceleration
+SoftnessML API predicts the **"softness"** of particles in disordered systems — a machine-learning-derived scalar field that captures local structural environments and predicts which particles are likely to rearrange.
 
-The implementation follows the original SVM methodology introduced by Schoenholz et al. (2016).
+**Why this matters:** In supercooled liquids and glasses, dynamics are highly heterogeneous. Some particles rearrange frequently while others stay static. Softness bridges the gap between static structure and dynamics, enabling prediction of rearrangements from a single snapshot.
+
+### What This Project Provides
+
+- Calculation of **local structural descriptors** (radial, angular, and bond-orientational order parameters via spherical harmonics) from MD trajectories in GSD format
+- Trained **Support Vector Machine (SVM)** model for softness prediction
+- **FastAPI REST API** for integration into simulation pipelines
+- **Numba-accelerated** computation for performance
+- **Docker deployment** for reproducible environments
+
+The implementation follows [Schoenholz et al. (2016)](https://www.nature.com/articles/nphys3644).
+
+---
+
+## 📈 Results
+
+### Particle Trajectories Colored by Softness
+
+Particles colored by their predicted softness field — warmer colors indicate higher softness (more likely to rearrange), cooler colors indicate lower softness (more stable).
+
+![Particle trajectories colored by softness](docs/media/trajectory_softness.gif)
+*3D Lennard-Jones supercooled liquid at T=0.63. Color scale: blue (low softness, stable) → red (high softness, rearrangement-prone).*
+
+### Softness Distribution: Rearranging vs. Non-Rearranging Particles
+
+The distribution of softness for particles that rearrange — $P(S|R)$ — is shifted to higher values compared to particles that remain static demonstrating that softness is a strong predictor of rearrangement propensity.
+
+![Softness distribution P(S|R) vs P(S|P)](docs/media/softness_distribution.png)
+
+The clear separation between the two distributions confirms that the SVM-learned softness field successfully captures structural features predictive of dynamics.
+
+---
 
 ## Scientific Background
+
 ### What is Softness?
-In supercooled liquids and glasses, particle dynamics are highly heterogeneous. Some particles rearrange frequently, while others remain relatively static. **Softness** is a machine learning-derived scalar field that captures the local structural environment of each particle and predicts its likelihood to undergo a rearrangement.
 
-The concept was introduced by Schoenholz et al. (2016) and has become a widely used tool for linking structure to dynamics in amorphous materials.
+In supercooled liquids and glasses, particle dynamics are highly heterogeneous. **Softness** is a machine-learning-derived scalar field that captures the local structural environment of each particle and predicts its likelihood to undergo a rearrangement.
 
-### Why Predict Rearrangements?
-Predicting particle rearrangements has important implications in:
-- **Fundamental Physics**: Insights into the glass transition and dynamic heterogeneity
-- **Materials Science**: Design of stable amorphous materials and understanding of mechanical properties
-- **Industrial Applications**: Prediction of aging, failure, and deformation in glassy systems
+The concept was introduced by [Schoenholz et al. (2016)](https://www.nature.com/articles/nphys3644) and has become a widely used tool for linking structure to dynamics in amorphous materials.
+
+### Applications
+
+- **Fundamental Physics**: Glass transition and dynamic heterogeneity
+- **Materials Science**: Stable amorphous materials, mechanical properties
+- **Industrial**: Predicting aging, failure, and deformation in glassy systems
+
+---
 
 ## Mathematical Framework
+
 ### Local Structure Descriptors
-The local environment of each particle is characterized by radial structure functions, angular structure functions, and bond-orientational order parameters computed via spherical harmonics.
 
-1. **Radial Structure Functions**  
-   Capture local density variations at different distances:
+The local environment of each particle is characterized by three types of descriptors:
 
-$$
-G_\mu(i) = \sum_{j \in \mathrm{neighbors}} e^{-(r_{ij} - \mu)^2 / L^2}
-$$
+#### Radial Structure Functions
 
-   where $\mu$ are radial distance parameters and $L$ is a characteristic length scale.
+Capture local density variations at different distances:
 
-2. **Angular Structure Functions**  
-   Capture three-body correlations:
 
 $$
-\Psi_{\xi,\lambda,\zeta}(i) = \sum_{j,k \in \text{neighbors}} e^{-\xi^2 (r_{ij}^2 + r_{ik}^2 + r_{jk}^2)} (1 + \lambda \cos \theta_{jik})^\zeta
+G_\mu(i) = \sum_{j \in \text{neighbors}} e^{-(r_{ij} - \mu)^2 / L^2}
 $$
 
-   where $\theta_{jik}$ is the angle at particle $i$ formed by neighbors $j$ and $k$, and $\xi$, $\lambda$, $\zeta$ control radial decay and angular sensitivity.
 
-3. **Bond-Orientational Order Parameters (Steinhardt Parameters)**  
-   These quantify the degree of local rotational symmetry using spherical harmonics. For a central particle $i$, neighbors within annular  shells (defined by inner radii $r_{\text{inner}}$ and width $\Delta r = 0.5$) are considered.
+where $\mu$ are radial distance parameters and $L$ is a characteristic length scale.
 
-   For each shell and each even angular momentum $l$ (typically $l = 2, 4, 6, 8, 10, 12, 14$):
+#### Angular Structure Functions
+
+Capture three-body correlations:
+
+
+$$
+\Psi_{\xi,\lambda,\zeta}(i) = \sum_{j,k \in \text{neighbors}} e^{-\xi^2(r_{ij}^2 + r_{ik}^2 + r_{jk}^2)} (1 + \lambda \cos\theta_{jik})^\zeta
+$$
+
+
+where $\theta_{jik}$ is the angle at particle $i$ formed by neighbors $j$ and $k$, and $\xi$, $\lambda$, $\zeta$ control radial decay and angular sensitivity.
+
+#### Bond-Orientational Order Parameters (Steinhardt Parameters)
+
+Quantify local rotational symmetry using spherical harmonics. For a central particle $i$, neighbors within annular shells (inner radii $r_\text{inner}$, width $\Delta r = 0.5$) are considered.
+
+For each shell and each even angular momentum $l = 2, 4, 6, 8, 10, 12, 14$:
+
 
 $$
 q_{lm}(i) = \frac{1}{N_b(i)} \sum_{j \in \text{shell}} Y_{lm}(\theta_{ij}, \phi_{ij})
 $$
 
+
+
 $$
-q_l(i) = \sqrt{\frac{4\pi}{2l + 1} \sum_{m=-l}^{l} |q_{lm}(i)|^2}
+q_l(i) = \sqrt{\frac{4\pi}{2l+1} \sum_{m=-l}^{l} |q_{lm}(i)|^2}
 $$
 
-   where:
-   - $N_b(i)$ is the number of neighbors in the shell
-   - $Y_{lm}(\theta, \phi)$ are spherical harmonics
-   - $(\theta_{ij}, \phi_{ij})$ are the polar and azimuthal angles of the vector from particle $i$ to neighbor $j$
 
-   The rotationally invariant $q_l(i)$ measures the strength of $l$-fold symmetry in that shell. In practice, the implementation computes the average of $|Y_{lm}|$ over neighbors and then applies the normalization (equivalent under magnitude).
+where $N_b(i)$ is the number of neighbors in the shell, $Y_{lm}(\theta, \phi)$ are spherical harmonics, and $(\theta_{ij}, \phi_{ij})$ are the polar and azimuthal angles of the vector from particle $i$ to neighbor $j$.
 
-### Softness Calculation (SVM)
-Softness is computed as a linear combination of the structural descriptors using a trained Support Vector Machine: Softness is 
+### Softness Prediction (SVM)
+
+Softness is computed as a linear combination of structural descriptors using a trained SVM:
+
 
 $$
 S_i = \mathbf{w} \cdot \mathbf{x}_i + b
 $$
 
-where:
-- $\mathbf{x}$ is the concatenated feature vector (radial $G_\mu$ and bond-orientational $q_l$ or angular $\Psi_{\xi,\lambda,\zeta}$ for multiple shells) for particle $i$
-- $\mathbf{w}$ is the learned weight vector
-- $b$ is the bias term
 
-The SVM is trained to separate particles that undergo significant motion. To quantify particle motion, we use the **hop parameter** $p_{\text{hop}}$, following the activated‑dynamics framework of Candelier et al. This metric measures particle displacement over a fixed observation window.
+where $\mathbf{x}$ is the concatenated feature vector, $\mathbf{w}$ is the learned weight vector, and $b$ is the bias term.
 
-For a window of 10 Lennard‑Jones time units:
+### Rearrangement Detection
+
+The SVM is trained to separate particles that undergo significant motion using the **hop parameter** $p_\text{hop}$ [Candelier et al.](https://doi.org/10.1103/PhysRevLett.105.135702):
+
 
 $$
-p_{\text{hop}}(i,t) =
-\sqrt{
-\left\langle
-\left(\vec{r}_i(t) - \langle \vec{r}_i \rangle_{w_2}\right)^2
-\right\rangle_{w_1}
-\left\langle
-\left(\vec{r}_i(t) - \langle \vec{r}_i \rangle_{w_1}\right)^2
-\right\rangle_{w_2}
-}
+p_\text{hop}(i,t) = \sqrt{\langle(\vec{r}_i(t) - \langle\vec{r}_i\rangle_{w_2})^2\rangle_{w_1} \langle(\vec{r}_i(t) - \langle\vec{r}_i\rangle_{w_1})^2\rangle_{w_2}}
 $$
 
-where the time windows are
-$w_1 = [t-5, t]$ and $w_2 = [t, t+5]$, and
-$\langle \cdot \rangle_{w_i}$ denotes an average over the corresponding half‑window.
 
+where time windows are $w_1 = [t-5, t]$ and $w_2 = [t, t+5]$ (in Lennard-Jones time units).
 
+---
 
+## Quick Start
 
-## Installation
 ### Prerequisites
+
 - Python 3.9+
 - Docker (recommended for deployment)
 
-### From Source
+### Option 1: Docker (Recommended)
+
+```bash
+# Clone
+git clone https://github.com/tomidiy/SoftnessML_api.git
+cd SoftnessML_api
+
+# Build and run
+docker build -t softness-predictor .
+docker run -d -p 8000:8000 \
+    -v $(pwd)/data:/app/data \
+    --name softness-predictor-container \
+    softness-predictor
+
+# Health check
+curl http://localhost:8000/health
+# → {"status": "healthy"}
+
+# Predict softness
+curl -X POST "http://localhost:8000/predict" \
+    -H "Content-Type: application/json" \
+    -d '{"temp": 0.7, "frame": 0, "gsd_file": "T0.7_idx0.gsd"}'
+```
+
+### Option 2: Local Development
+
 ```bash
 git clone https://github.com/tomidiy/SoftnessML_api.git
 cd SoftnessML_api
-```
-
-## Dependencies
-See `app/requirements.txt`:
-- fastapi==0.115.0
-- uvicorn==0.30.6
-- numpy==1.26.4
-- scikit-learn==1.5.1
-- gsd==3.3.0
-- pydantic==2.8.2
-- scipy==1.13.1
-- numba==0.60.0
-
-Install locally (for development):
-```bash
 pip install -r app/requirements.txt
-```
 
+# Start the API server
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-## Usage
-**Prepare Data Files**:
-Place the following files in the `data/` directory:
--`Softness_train_data.pkl`
--`Softness_train_data_radialSphericalHarmonics.pkl` 
--`phop_T<temp>.pkl`
--`T<temp>_idx0.gsd`
-
-
-**Run with Docker (Recommended)**
-```bash
-docker build -t softness-predictor .
-docker run -d -p 8000:8000  \
-     -v $(pwd)/data:/app/data \
-      --name softness-predictor-container  \
-      softness-predictor
-```
-
-**Health Check**:
-
-```bash
+# Test
 curl http://localhost:8000/health
 ```
 
-Expected output: {"status": "healthy"}
+### Required Data Files
 
-**Predict Softness**:
+Place the following in `data/`:
 
-```bash
-curl -X POST "http://localhost:8000/predict" \
-     -H "Content-Type: application/json" \
-     -d '{"temp": 0.7, "frame": 0, "gsd_file": "T0.7_idx0.gsd"}'
+```
+data/
+├── Softness_train_data.pkl
+├── Softness_train_data_radialSphericalHarmonics.pkl
+├── phop_T<temp>.pkl
+└── T<temp>_idx0.gsd
 ```
 
+---
+
 ## API Reference
+
+|
+ Endpoint 
+|
+ Method 
+|
+ Description 
+|
+|
+---
+|
+---
+|
+---
+|
+|
 `/health`
-     - GET — Returns service status
+|
+`GET`
+|
+ Returns service health status 
+|
+|
 `/predict`
-     - POST — Computes structural descriptors (radial, angular, and spherical harmonics-based bond-orientational parameters) from the specified GSD file and frame, then predicts softness using the trained SVM.
-     Request body:
+|
+`POST`
+|
+ Compute descriptors and predict softness 
+|
+
+### `POST /predict`
+
+Computes structural descriptors (radial, angular, and spherical-harmonics-based bond-orientational parameters) from the specified GSD file and frame, then predicts softness using the trained SVM.
+
+**Request:**
 
 ```json
 {
-  "temp": 0.7,
-  "frame": 0,
-  "gsd_file": "T0.7_idx0.gsd"
+    "temp": 0.7,
+    "frame": 0,
+    "gsd_file": "T0.7_idx0.gsd"
 }
 ```
-Response:
-Array of softness values for all particles in the selected frame.
+
+|
+ Field 
+|
+ Type 
+|
+ Description 
+|
+|
+---
+|
+---
+|
+---
+|
+|
+`temp`
+|
+`float`
+|
+ Simulation temperature 
+|
+|
+`frame`
+|
+`int`
+|
+ Trajectory frame index 
+|
+|
+`gsd_file`
+|
+`string`
+|
+ GSD file name in 
+`data/`
+|
+
+**Response:**
+
+```json
+{
+    "softness": [0.42, -1.13, 0.87, ...],
+    "num_particles": 1000
+}
+```
+
+---
 
 ## Project Structure
-```text
+
+```
 SoftnessML_api/
 ├── app/
-│   ├── main.py
-│   ├── model.py
-│   ├── Structure.py
-│   ├── requirements.txt
+│   ├── main.py               # FastAPI application and endpoints
+│   ├── model.py               # SVM model loading and prediction
+│   ├── Structure.py           # Structural descriptor computation
+│   └── requirements.txt       # Python dependencies
 ├── data/
 │   ├── Softness_train_data.pkl
 │   ├── Softness_train_data_radialSphericalHarmonics.pkl
@@ -208,19 +308,87 @@ SoftnessML_api/
 │   └── T<temp>_idx0.gsd
 ├── Dockerfile
 ├── README.md
-└── .github/workflows/ci.yml
+└── .github/workflows/ci.yml   # CI pipeline
 ```
 
-## Applications
-- Understanding dynamic heterogeneity and the glass transition
-- Predicting shear transformation zones in metallic and colloidal glasses
-- Identifying structurally mobile regions in amorphous pharmaceuticals
-- Analyzing structural origins of plasticity and failure in disordered solids
-- Benchmarking structure–dynamics correlations in simulation datasets
+---
+
+## Tech Stack
+
+|
+ Component 
+|
+ Technology 
+|
+ Purpose 
+|
+|
+---
+|
+---
+|
+---
+|
+|
+ API Framework 
+|
+ FastAPI 
+|
+ REST endpoint serving 
+|
+|
+ ML Model 
+|
+ scikit-learn (SVM) 
+|
+ Softness prediction 
+|
+|
+ Descriptors 
+|
+ NumPy + SciPy + Numba 
+|
+ Structure function computation 
+|
+|
+ Trajectory I/O 
+|
+ GSD 
+|
+ Read MD simulation files 
+|
+|
+ Deployment 
+|
+ Docker 
+|
+ Reproducible containerized service 
+|
+|
+ CI 
+|
+ GitHub Actions 
+|
+ Automated testing 
+|
+
+---
+
+## Related Projects
+
+- [Multi-Modal RAG over Scientific Papers](https://github.com/tomidiy/multimodal-rag-papers) — 
+  RAG system for querying scientific papers using text, figures, and tables.
+
+---
 
 ## References
-- Schoenholz, S. S., et al. (2016). A structural approach to relaxation in glassy liquids. Nature Physics, 12, 469–471.
-- Cubuk, E. D., et al. (2015). Identifying structural flow defects in disordered solids using machine-learning methods. Physical Review Letters, 114, 108001.
-- Steinhardt, P. J., Nelson, D. R., & Ronchetti, M. (1983). Bond-orientational order in liquids and glasses. Physical Review B, 28, 784.
 
+1. Schoenholz, S. S., et al. (2016). *A structural approach to relaxation in glassy liquids.* Nature Physics, **12**, 469–471.
+2. Cubuk, E. D., et al. (2015). *Identifying structural flow defects in disordered solids using machine-learning methods.* Physical Review Letters, **114**, 108001.
+3. Steinhardt, P. J., Nelson, D. R., & Ronchetti, M. (1983). *Bond-orientational order in liquids and glasses.* Physical Review B, **28**, 784.
 
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE).

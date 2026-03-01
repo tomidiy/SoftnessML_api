@@ -1,7 +1,5 @@
 # SoftnessML API
 
-A machine learning framework for predicting local rearrangement propensity ("softness") in supercooled liquids and glassy systems using structure-based descriptors and Support Vector Machine (SVM) models.
-
 > **Machine learning framework for predicting particle rearrangements in supercooled liquids and glasses from local structure — served as a FastAPI microservice.**
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
